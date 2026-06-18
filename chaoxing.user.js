@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         学习通提取助手
+// @name         学习通提取助手 (Pro版)
 // @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  一键提取学习通练习题为文本文档
+// @version      2.0
+// @description  一键提取学习通练习题（含答案解析）为文本文档
 // @match        *://*.chaoxing.com/*
 // @grant        none
 // ==/UserScript==
@@ -10,14 +10,14 @@
 (function() {
     'use strict';
 
-    // 1. 在网页右下角创建一个悬浮的“提取”按钮
+    // 1. 创建悬浮按钮 (升级为尊贵的紫色)
     const btn = document.createElement('button');
-    btn.innerText = '一键导出题目';
+    btn.innerText = '一键导出(含答案)';
     btn.style.position = 'fixed';
     btn.style.bottom = '50px';
     btn.style.right = '50px';
     btn.style.padding = '15px 20px';
-    btn.style.backgroundColor = '#4CAF50';
+    btn.style.backgroundColor = '#9C27B0'; // 改成紫色区分版本
     btn.style.color = 'white';
     btn.style.border = 'none';
     btn.style.borderRadius = '8px';
@@ -27,9 +27,9 @@
     btn.style.boxShadow = '0 4px 6px rgba(0,0,0,0.3)';
     document.body.appendChild(btn);
 
-    // 2. 设置点击按钮后执行的提取逻辑
+    // 2. 提取逻辑
     btn.onclick = function() {
-        let resultText = "=== 学习通练习题提取 ===\n\n";
+        let resultText = "=== 学习通练习题及答案提取 ===\n\n";
         let questions = document.querySelectorAll('div.questionLi');
         
         if (questions.length === 0) {
@@ -50,21 +50,31 @@
                 resultText += opt.innerText.replace(/\s+/g, ' ').trim() + "\n";
             });
             
-            resultText += "\n";
+            // 【本次升级核心：提取答案和解析】
+            let answerEl = q.querySelector('.mark_answer');
+            if (answerEl) {
+                let answerText = answerEl.innerText.replace(/\s+/g, ' ').trim();
+                // 只有当有答案时才写入，防止空白
+                if (answerText !== "") {
+                    resultText += "👉 " + answerText + "\n";
+                }
+            }
+            
+            resultText += "\n------------------------\n\n"; // 题目之间加分割线，更美观
         });
 
-        // 3. 将提取的文字生成 txt 文件并自动下载
+        // 3. 自动下载
         const blob = new Blob([resultText], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = '学习通练习题_已导出.txt';
+        a.download = '学习通练习题(含答案).txt';
         a.click();
         URL.revokeObjectURL(url);
         
-        // 改变按钮文字提示成功
+        // 按钮交互反馈
         btn.innerText = '导出成功！';
-        btn.style.backgroundColor = '#008CBA';
-        setTimeout(() => { btn.innerText = '一键导出题目'; btn.style.backgroundColor = '#4CAF50'; }, 3000);
+        btn.style.backgroundColor = '#4CAF50';
+        setTimeout(() => { btn.innerText = '一键导出(含答案)'; btn.style.backgroundColor = '#9C27B0'; }, 3000);
     };
 })();
