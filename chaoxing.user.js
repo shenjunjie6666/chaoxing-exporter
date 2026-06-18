@@ -144,14 +144,16 @@
         return resultText;
     }
 
-  // ================= 4. 下载引擎 =================
-function downloadFile(content, filename) {
-    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-}
+    // ================= 4. 下载引擎 =================
+    function downloadFile(content, filename) {
+        // \uFEFF 是 UTF-8 的 BOM 头部，加上单引号 '\uFEFF' 就不会报错了
+        const blob = new Blob(['\uFEFF' + content], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
 })();
