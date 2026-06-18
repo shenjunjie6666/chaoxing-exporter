@@ -16,7 +16,7 @@
     document.body.appendChild(panel);
 
     const title = document.createElement('div');
-    title.innerHTML = '<b>🚀 提取助手 V3.1</b><br><span style="font-size:12px;color:#666;">By 你的名字(可修改)</span>';
+    title.innerHTML = '<b>🚀 提取助手 V3.1</b><br><span style="font-size:12px;color:#666;">By 夏季芭乐';
     title.style.cssText = 'font-size:15px; color:#333; text-align:center; margin-bottom:5px; border-bottom:1px solid #eee; padding-bottom:8px; line-height:1.4;';
     panel.appendChild(title);
 
