@@ -146,9 +146,7 @@
 
   // ================= 4. 下载引擎 =================
 function downloadFile(content, filename) {
-    // \uFEFF 是 UTF-8 的 BOM (Byte Order Mark) 头部
-    // 加上它之后，Windows 记事本和 Excel 就能瞬间识别出这是 UTF-8 编码，不再会报错或乱码
-    const blob = new Blob([\uFEFF' + content], { type: 'text/markdown;charset=utf-8' });
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -156,5 +154,4 @@ function downloadFile(content, filename) {
     a.click();
     URL.revokeObjectURL(url);
 }
-
 })();
