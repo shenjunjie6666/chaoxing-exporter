@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         学习通提取助手
+// @name         学习通提取助手 
 // @namespace    http://tampermonkey.net/
-// @version      3.2
-// @description  一键提取学习通练习题，支持多格式导出（含Word）。修复了悬浮窗消失的问题。
+// @version      3.3
+// @description  一键提取学习通练习题，支持多格式导出（含Word）。答案仅保留字母，简洁清晰。
 // @match        *://*.chaoxing.com/*
 // @run-at       document-end
 // @grant        none
@@ -42,7 +42,7 @@
         panel.style.maxWidth = '200px';
 
         const title = document.createElement('div');
-        title.innerText = '📚 提取助手 v3.2';
+        title.innerText = '📚 提取助手 v3.3';
         title.style.fontWeight = 'bold';
         title.style.textAlign = 'center';
         title.style.color = '#333';
@@ -117,6 +117,12 @@
         return btn;
     }
 
+    // --- 提取答案中的字母（只保留 A-Z，多个则合并，如 "ABC"）---
+    function getAnswerLetters(text) {
+        const match = text.match(/[A-Z]+/);
+        return match ? match[0] : text;  // 如果没有字母，保留原文本（如判断题的“正确/错误”）
+    }
+
     // --- 提取内容（支持 txt 和 md）---
     function extractContent(type = 'txt') {
         let resultText = "";
@@ -157,10 +163,11 @@
             let answerEl = q.querySelector('.mark_answer') || q.querySelector('.colorGreen') || q.querySelector('.answerBg');
             if (answerEl) {
                 let answerText = answerEl.innerText.replace(/\s+/g, ' ').trim();
+                let letters = getAnswerLetters(answerText);
                 if (type === 'md') {
-                    resultText += `> **正确答案**: ${answerText}\n`;
+                    resultText += `> **正确答案**: ${letters}\n`;
                 } else {
-                    resultText += `【正确答案】: ${answerText}\n`;
+                    resultText += `【正确答案】: ${letters}\n`;
                 }
             }
 
@@ -184,7 +191,7 @@
         return resultText;
     }
 
-    // --- 生成 Word 文档的 HTML 内容（带样式）---
+    // --- 生成 Word 文档的 HTML 内容（答案仅字母）---
     function generateWordHTML() {
         let questions = document.querySelectorAll('div.questionLi');
         if (questions.length === 0) {
@@ -192,17 +199,14 @@
             return null;
         }
 
-        // 构建 HTML 片段
         let bodyHtml = `<h1 style="text-align:center;font-size:24pt;color:#333;">学习通练习题提取</h1><hr style="border:1px solid #ccc;">`;
 
         questions.forEach((q, index) => {
             let titleEl = q.querySelector('h3.mark_name') || q.querySelector('.mark_name');
             let titleText = titleEl ? titleEl.innerText.replace(/\s+/g, ' ').trim() : "[未找到题目正文]";
 
-            // 题目（大号、加粗）
             bodyHtml += `<h3 style="font-size:16pt;font-weight:bold;color:#1a1a1a;margin-top:20px;margin-bottom:8px;">${index + 1}. ${titleText}</h3>`;
 
-            // 选项（有序列表，字母序号）
             let options = q.querySelectorAll('ul.mark_letter li');
             if (options.length > 0) {
                 bodyHtml += `<ul style="list-style-type:lower-alpha;padding-left:25px;font-size:12pt;margin-top:4px;margin-bottom:8px;">`;
@@ -213,25 +217,22 @@
                 bodyHtml += `</ul>`;
             }
 
-            // 正确答案（红色加粗）
             let answerEl = q.querySelector('.mark_answer') || q.querySelector('.colorGreen') || q.querySelector('.answerBg');
             if (answerEl) {
                 let answerText = answerEl.innerText.replace(/\s+/g, ' ').trim();
-                bodyHtml += `<p style="color:#d32f2f;font-weight:bold;font-size:12pt;margin:4px 0;">✅ 正确答案：${answerText}</p>`;
+                let letters = getAnswerLetters(answerText);
+                bodyHtml += `<p style="color:#d32f2f;font-weight:bold;font-size:12pt;margin:4px 0;">✅ 正确答案：${letters}</p>`;
             }
 
-            // 答案解析（灰色斜体）
             let analysisEl = q.querySelector('.mark_strategy') || q.querySelector('.analysis');
             if (analysisEl) {
                 let analysisText = analysisEl.innerText.replace(/\s+/g, ' ').trim();
                 bodyHtml += `<p style="color:#555;font-style:italic;font-size:11pt;margin:4px 0 12px 0;">📖 解析：${analysisText}</p>`;
             }
 
-            // 分割线
             bodyHtml += `<hr style="border:0;border-top:1px dashed #aaa;margin:16px 0;">`;
         });
 
-        // 完整 HTML 文档
         return `<!DOCTYPE html>
 <html>
 <head>
