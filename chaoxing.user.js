@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         学习通提取助手 
 // @namespace    http://tampermonkey.net/
-// @version      3.3
-// @description  一键提取学习通练习题，支持多格式导出（含Word）。答案仅保留字母，简洁清晰。
+// @version      3.4
+// @description  一键提取学习通练习题，支持多格式导出（含Word）。答案仅字母，题目编号无重复。
 // @match        *://*.chaoxing.com/*
 // @run-at       document-end
 // @grant        none
@@ -42,7 +42,7 @@
         panel.style.maxWidth = '200px';
 
         const title = document.createElement('div');
-        title.innerText = '📚 提取助手 v3.3';
+        title.innerText = '📚 提取助手 v3.4';
         title.style.fontWeight = 'bold';
         title.style.textAlign = 'center';
         title.style.color = '#333';
@@ -117,6 +117,14 @@
         return btn;
     }
 
+    // --- 清理题目开头的编号（如 "1." "2、" "(3)" 等）---
+    function cleanTitle(text) {
+        // 匹配开头可能的编号：数字+点/顿号/括号等
+        let cleaned = text.replace(/^\s*(\d+[.、)）]\s*|\(\d+\)\s*)/, '');
+        // 如果清理后为空，则保留原文本（防止丢失内容）
+        return cleaned.trim() || text.trim();
+    }
+
     // --- 提取答案中的字母（只保留 A-Z，多个则合并，如 "ABC"）---
     function getAnswerLetters(text) {
         const match = text.match(/[A-Z]+/);
@@ -141,7 +149,8 @@
 
         questions.forEach((q, index) => {
             let titleEl = q.querySelector('h3.mark_name') || q.querySelector('.mark_name');
-            let titleText = titleEl ? titleEl.innerText.replace(/\s+/g, ' ').trim() : "[未找到题目正文]";
+            let rawTitle = titleEl ? titleEl.innerText.replace(/\s+/g, ' ').trim() : "[未找到题目正文]";
+            let titleText = cleanTitle(rawTitle);  // 去除自带编号
 
             if (type === 'md') {
                 resultText += `### ${index + 1}. ${titleText}\n\n`;
@@ -191,7 +200,7 @@
         return resultText;
     }
 
-    // --- 生成 Word 文档的 HTML 内容（答案仅字母）---
+    // --- 生成 Word 文档的 HTML 内容（答案仅字母，标题无重复编号）---
     function generateWordHTML() {
         let questions = document.querySelectorAll('div.questionLi');
         if (questions.length === 0) {
@@ -203,7 +212,8 @@
 
         questions.forEach((q, index) => {
             let titleEl = q.querySelector('h3.mark_name') || q.querySelector('.mark_name');
-            let titleText = titleEl ? titleEl.innerText.replace(/\s+/g, ' ').trim() : "[未找到题目正文]";
+            let rawTitle = titleEl ? titleEl.innerText.replace(/\s+/g, ' ').trim() : "[未找到题目正文]";
+            let titleText = cleanTitle(rawTitle);
 
             bodyHtml += `<h3 style="font-size:16pt;font-weight:bold;color:#1a1a1a;margin-top:20px;margin-bottom:8px;">${index + 1}. ${titleText}</h3>`;
 
