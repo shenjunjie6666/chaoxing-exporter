@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         学习通提取助手 
+// @name         学习通提取助手 (精准过滤选项文本版)
 // @namespace    http://tampermonkey.net/
-// @version      3.4
-// @description  一键提取学习通练习题，支持多格式导出（含Word）。答案仅字母，题目编号无重复。
+// @version      3.6
+// @description  一键提取学习通练习题，支持多格式导出（含Word）。精准提取“正确答案”，严格过滤选项中的英文单词。
 // @match        *://*.chaoxing.com/*
 // @run-at       document-end
 // @grant        none
@@ -42,7 +42,7 @@
         panel.style.maxWidth = '200px';
 
         const title = document.createElement('div');
-        title.innerText = '📚 提取助手 v3.4';
+        title.innerText = '📚 提取助手 v3.6';
         title.style.fontWeight = 'bold';
         title.style.textAlign = 'center';
         title.style.color = '#333';
@@ -117,18 +117,35 @@
         return btn;
     }
 
-    // --- 清理题目开头的编号（如 "1." "2、" "(3)" 等）---
+    // --- 清理题目开头的编号 ---
     function cleanTitle(text) {
-        // 匹配开头可能的编号：数字+点/顿号/括号等
         let cleaned = text.replace(/^\s*(\d+[.、)）]\s*|\(\d+\)\s*)/, '');
-        // 如果清理后为空，则保留原文本（防止丢失内容）
         return cleaned.trim() || text.trim();
     }
 
-    // --- 提取答案中的字母（只保留 A-Z，多个则合并，如 "ABC"）---
+    // --- 【核心修复 v3.6】精准提取答案，阻断类似 "B. EBV" 中的单词 ---
     function getAnswerLetters(text) {
+        const correctIndex = text.indexOf('正确答案');
+        if (correctIndex !== -1) {
+            let afterCorrect = text.substring(correctIndex);
+            // 去除“正确答案”和可能跟随的冒号、空格
+            let cleanAfter = afterCorrect.replace(/^正确答案[:：\s]*/, '');
+            
+            // 1. 判断题优先：紧跟在后面的如果是对错符号或文字
+            const judgeMatch = cleanAfter.match(/^([√×对错]|正确|错误)/);
+            if (judgeMatch) return judgeMatch[1];
+
+            // 2. 选择题：只匹配开头的字母及其分隔符（如空格、逗号、顿号）
+            // 遇到点号（.）或中文字符就会停止匹配，从而完美过滤掉选项文本里的英文
+            const match = cleanAfter.match(/^([A-Z\s,、]+)/);
+            if (match) {
+                return match[1].replace(/[^A-Z]/g, ''); 
+            }
+        }
+
+        // 3. 后备方案：如果没有写“正确答案”，退回最基础匹配
         const match = text.match(/[A-Z]+/);
-        return match ? match[0] : text;  // 如果没有字母，保留原文本（如判断题的“正确/错误”）
+        return match ? match[0] : text.replace(/\s+/g, ' ').trim();
     }
 
     // --- 提取内容（支持 txt 和 md）---
@@ -150,7 +167,7 @@
         questions.forEach((q, index) => {
             let titleEl = q.querySelector('h3.mark_name') || q.querySelector('.mark_name');
             let rawTitle = titleEl ? titleEl.innerText.replace(/\s+/g, ' ').trim() : "[未找到题目正文]";
-            let titleText = cleanTitle(rawTitle);  // 去除自带编号
+            let titleText = cleanTitle(rawTitle);
 
             if (type === 'md') {
                 resultText += `### ${index + 1}. ${titleText}\n\n`;
@@ -169,9 +186,16 @@
             });
             if (type === 'md' && options.length > 0) resultText += "\n";
 
+            // 获取答案逻辑
             let answerEl = q.querySelector('.mark_answer') || q.querySelector('.colorGreen') || q.querySelector('.answerBg');
-            if (answerEl) {
-                let answerText = answerEl.innerText.replace(/\s+/g, ' ').trim();
+            let answerText = answerEl ? answerEl.innerText.replace(/\s+/g, ' ').trim() : "";
+            
+            // 找不到正确答案时，检索题目整体文本作为兜底
+            if (!answerText.includes('正确答案')) {
+                answerText = q.innerText.replace(/\s+/g, ' ').trim();
+            }
+
+            if (answerText.includes('正确答案') || answerEl) {
                 let letters = getAnswerLetters(answerText);
                 if (type === 'md') {
                     resultText += `> **正确答案**: ${letters}\n`;
@@ -200,7 +224,7 @@
         return resultText;
     }
 
-    // --- 生成 Word 文档的 HTML 内容（答案仅字母，标题无重复编号）---
+    // --- 生成 Word 文档的 HTML 内容 ---
     function generateWordHTML() {
         let questions = document.querySelectorAll('div.questionLi');
         if (questions.length === 0) {
@@ -209,7 +233,6 @@
         }
 
         let bodyHtml = `<h1 style="text-align:center;font-size:24pt;color:#333;">学习通练习题提取</h1><hr style="border:1px solid #ccc;">`;
-
         questions.forEach((q, index) => {
             let titleEl = q.querySelector('h3.mark_name') || q.querySelector('.mark_name');
             let rawTitle = titleEl ? titleEl.innerText.replace(/\s+/g, ' ').trim() : "[未找到题目正文]";
@@ -227,9 +250,15 @@
                 bodyHtml += `</ul>`;
             }
 
+            // 获取答案逻辑
             let answerEl = q.querySelector('.mark_answer') || q.querySelector('.colorGreen') || q.querySelector('.answerBg');
-            if (answerEl) {
-                let answerText = answerEl.innerText.replace(/\s+/g, ' ').trim();
+            let answerText = answerEl ? answerEl.innerText.replace(/\s+/g, ' ').trim() : "";
+            
+            if (!answerText.includes('正确答案')) {
+                answerText = q.innerText.replace(/\s+/g, ' ').trim();
+            }
+
+            if (answerText.includes('正确答案') || answerEl) {
                 let letters = getAnswerLetters(answerText);
                 bodyHtml += `<p style="color:#d32f2f;font-weight:bold;font-size:12pt;margin:4px 0;">✅ 正确答案：${letters}</p>`;
             }
