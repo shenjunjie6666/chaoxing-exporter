@@ -1,4 +1,4 @@
-# 🚀 学习通提取助手 (智能完美版 V3.2)
+# 🚀 学习通提取助手 (智能完美版 V3.4)
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/)
 [![Version](https://img.shields.io/badge/version-3.2-pro.svg?color=purple)](https://github.com/)
