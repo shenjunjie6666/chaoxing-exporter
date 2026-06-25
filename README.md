@@ -25,7 +25,7 @@
 首先需要在你的浏览器（Chrome, Edge, Firefox, Safari 等）上安装 [Tampermonkey (油猴)](https://www.google.com/search?q=https://www.tampermonkey.net/) 插件。
 2. **安装本脚本**：
 * **方式一**：在 Tampermonkey 控制面板中点击“添加新脚本”，清空默认代码，将本项目的脚本代码全选复制并粘贴进去，点击“文件” -> “保存”即可。
-* *(如果有发布链接)* **方式二**：点击 [这里](chrome-extension://dhdgffkkebhmkfjojejmpbldmpobfkfo/ask.html?aid=e3916591-0c5a-4b6e-a3f0-77fa092e0895) 直接通过 GreasyFork 一键安装。
+* *(如果有发布链接)* **方式二**：点击 chrome-extension://dhdgffkkebhmkfjojejmpbldmpobfkfo/ask.html?aid=e3916591-0c5a-4b6e-a3f0-77fa092e0895 直接通过 GreasyFork 一键安装。
 
 
 
