@@ -1,9 +1,11 @@
 // ==UserScript==
-// @name         学习通提取助手 (精准过滤选项文本版)
+// @name         学习通 & 在浙学 提取助手 
 // @namespace    http://tampermonkey.net/
-// @version      3.6
-// @description  一键提取学习通练习题，支持多格式导出（含Word）。精准提取“正确答案”，严格过滤选项中的英文单词。
+// @version      3.5
+// @description  一键提取学习通、在浙学练习题，支持多格式导出（含Word）。答案仅字母，题目编号无重复。
 // @match        *://*.chaoxing.com/*
+// @match        *://*.zjooc.cn/*
+// @match        *://*.zjooc.com/*
 // @run-at       document-end
 // @grant        none
 // ==/UserScript==
@@ -11,11 +13,40 @@
 (function() {
     'use strict';
 
+    // --- 1. 平台配置字典 ---
+    const PLATFORM_CONFIGS = {
+        chaoxing: {
+            container: 'div.questionLi',
+            title: 'h3.mark_name, .mark_name',
+            options: 'ul.mark_letter li',
+            answer: '.mark_answer, .colorGreen, .answerBg',
+            analysis: '.mark_strategy, .analysis'
+        },
+        zjooc: {
+            container: '.questiono-item',
+            title: '.questiono-header',
+            options: '.common_test_option',
+            answer: '.common_test_answer',
+            analysis: '.analysis-content' // 预留解析类名，没有解析也不会报错
+        }
+    };
+
+    // 自动检测当前平台
+    let currentConfig = null;
+    const host = window.location.hostname;
+    if (host.includes('chaoxing.com')) {
+        currentConfig = PLATFORM_CONFIGS.chaoxing;
+    } else if (host.includes('zjooc.cn') || host.includes('zjooc.com')) {
+        currentConfig = PLATFORM_CONFIGS.zjooc;
+    }
+
+    if (!currentConfig) return; // 如果不是支持的平台，则不运行
+
     let panelCreated = false;
 
-    // --- 1. 智能检测：每隔 1 秒检测一次页面，发现题目才生成面板 ---
+    // --- 2. 智能检测：每隔 1 秒检测一次页面，发现题目才生成面板 ---
     const checkTimer = setInterval(() => {
-        if (document.querySelectorAll('div.questionLi').length > 0 && document.body) {
+        if (document.querySelectorAll(currentConfig.container).length > 0 && document.body) {
             if (!panelCreated) {
                 initPanel();
                 panelCreated = true;
@@ -24,7 +55,7 @@
         }
     }, 1000);
 
-    // --- 2. 创建界面的主函数 ---
+    // --- 3. 创建界面的主函数 ---
     function initPanel() {
         const panel = document.createElement('div');
         panel.style.position = 'fixed';
@@ -42,7 +73,7 @@
         panel.style.maxWidth = '200px';
 
         const title = document.createElement('div');
-        title.innerText = '📚 提取助手 v3.6';
+        title.innerText = host.includes('chaoxing') ? '📚 学习通提取 v3.5' : '📚 在浙学提取 v3.5';
         title.style.fontWeight = 'bold';
         title.style.textAlign = 'center';
         title.style.color = '#333';
@@ -123,49 +154,31 @@
         return cleaned.trim() || text.trim();
     }
 
-    // --- 【核心修复 v3.6】精准提取答案，阻断类似 "B. EBV" 中的单词 ---
+    // --- 提取答案中的字母 ---
     function getAnswerLetters(text) {
-        const correctIndex = text.indexOf('正确答案');
-        if (correctIndex !== -1) {
-            let afterCorrect = text.substring(correctIndex);
-            // 去除“正确答案”和可能跟随的冒号、空格
-            let cleanAfter = afterCorrect.replace(/^正确答案[:：\s]*/, '');
-            
-            // 1. 判断题优先：紧跟在后面的如果是对错符号或文字
-            const judgeMatch = cleanAfter.match(/^([√×对错]|正确|错误)/);
-            if (judgeMatch) return judgeMatch[1];
-
-            // 2. 选择题：只匹配开头的字母及其分隔符（如空格、逗号、顿号）
-            // 遇到点号（.）或中文字符就会停止匹配，从而完美过滤掉选项文本里的英文
-            const match = cleanAfter.match(/^([A-Z\s,、]+)/);
-            if (match) {
-                return match[1].replace(/[^A-Z]/g, ''); 
-            }
-        }
-
-        // 3. 后备方案：如果没有写“正确答案”，退回最基础匹配
         const match = text.match(/[A-Z]+/);
-        return match ? match[0] : text.replace(/\s+/g, ' ').trim();
+        return match ? match[0] : text; 
     }
 
     // --- 提取内容（支持 txt 和 md）---
     function extractContent(type = 'txt') {
         let resultText = "";
-        let questions = document.querySelectorAll('div.questionLi');
+        let questions = document.querySelectorAll(currentConfig.container);
 
         if (questions.length === 0) {
             alert("⚠️ 未提取到内容，页面可能正在加载，请稍后再试！");
             return null;
         }
 
+        const platformName = host.includes('chaoxing') ? '学习通' : '在浙学';
         if (type === 'md') {
-            resultText += "# 学习通练习题提取\n\n";
+            resultText += `# ${platformName}练习题提取\n\n`;
         } else {
-            resultText += "=== 学习通练习题提取 ===\n\n";
+            resultText += `=== ${platformName}练习题提取 ===\n\n`;
         }
 
         questions.forEach((q, index) => {
-            let titleEl = q.querySelector('h3.mark_name') || q.querySelector('.mark_name');
+            let titleEl = q.querySelector(currentConfig.title);
             let rawTitle = titleEl ? titleEl.innerText.replace(/\s+/g, ' ').trim() : "[未找到题目正文]";
             let titleText = cleanTitle(rawTitle);
 
@@ -175,7 +188,7 @@
                 resultText += `${index + 1}. ${titleText}\n`;
             }
 
-            let options = q.querySelectorAll('ul.mark_letter li');
+            let options = q.querySelectorAll(currentConfig.options);
             options.forEach(opt => {
                 let optText = opt.innerText.replace(/\s+/g, ' ').trim();
                 if (type === 'md') {
@@ -186,16 +199,9 @@
             });
             if (type === 'md' && options.length > 0) resultText += "\n";
 
-            // 获取答案逻辑
-            let answerEl = q.querySelector('.mark_answer') || q.querySelector('.colorGreen') || q.querySelector('.answerBg');
-            let answerText = answerEl ? answerEl.innerText.replace(/\s+/g, ' ').trim() : "";
-            
-            // 找不到正确答案时，检索题目整体文本作为兜底
-            if (!answerText.includes('正确答案')) {
-                answerText = q.innerText.replace(/\s+/g, ' ').trim();
-            }
-
-            if (answerText.includes('正确答案') || answerEl) {
+            let answerEl = q.querySelector(currentConfig.answer);
+            if (answerEl) {
+                let answerText = answerEl.innerText.replace(/\s+/g, ' ').trim();
                 let letters = getAnswerLetters(answerText);
                 if (type === 'md') {
                     resultText += `> **正确答案**: ${letters}\n`;
@@ -204,7 +210,7 @@
                 }
             }
 
-            let analysisEl = q.querySelector('.mark_strategy') || q.querySelector('.analysis');
+            let analysisEl = q.querySelector(currentConfig.analysis);
             if (analysisEl) {
                 let analysisText = analysisEl.innerText.replace(/\s+/g, ' ').trim();
                 if (type === 'md') {
@@ -226,23 +232,25 @@
 
     // --- 生成 Word 文档的 HTML 内容 ---
     function generateWordHTML() {
-        let questions = document.querySelectorAll('div.questionLi');
+        let questions = document.querySelectorAll(currentConfig.container);
         if (questions.length === 0) {
             alert("⚠️ 未提取到内容，页面可能正在加载，请稍后再试！");
             return null;
         }
 
-        let bodyHtml = `<h1 style="text-align:center;font-size:24pt;color:#333;">学习通练习题提取</h1><hr style="border:1px solid #ccc;">`;
+        const platformName = host.includes('chaoxing') ? '学习通' : '在浙学';
+        let bodyHtml = `<h1 style="text-align:center;font-size:24pt;color:#333;">${platformName}练习题提取</h1><hr style="border:1px solid #ccc;">`;
+
         questions.forEach((q, index) => {
-            let titleEl = q.querySelector('h3.mark_name') || q.querySelector('.mark_name');
+            let titleEl = q.querySelector(currentConfig.title);
             let rawTitle = titleEl ? titleEl.innerText.replace(/\s+/g, ' ').trim() : "[未找到题目正文]";
             let titleText = cleanTitle(rawTitle);
 
             bodyHtml += `<h3 style="font-size:16pt;font-weight:bold;color:#1a1a1a;margin-top:20px;margin-bottom:8px;">${index + 1}. ${titleText}</h3>`;
 
-            let options = q.querySelectorAll('ul.mark_letter li');
+            let options = q.querySelectorAll(currentConfig.options);
             if (options.length > 0) {
-                bodyHtml += `<ul style="list-style-type:lower-alpha;padding-left:25px;font-size:12pt;margin-top:4px;margin-bottom:8px;">`;
+                bodyHtml += `<ul style="list-style-type:none;padding-left:15px;font-size:12pt;margin-top:4px;margin-bottom:8px;">`;
                 options.forEach(opt => {
                     let optText = opt.innerText.replace(/\s+/g, ' ').trim();
                     bodyHtml += `<li style="margin-bottom:2px;">${optText}</li>`;
@@ -250,20 +258,14 @@
                 bodyHtml += `</ul>`;
             }
 
-            // 获取答案逻辑
-            let answerEl = q.querySelector('.mark_answer') || q.querySelector('.colorGreen') || q.querySelector('.answerBg');
-            let answerText = answerEl ? answerEl.innerText.replace(/\s+/g, ' ').trim() : "";
-            
-            if (!answerText.includes('正确答案')) {
-                answerText = q.innerText.replace(/\s+/g, ' ').trim();
-            }
-
-            if (answerText.includes('正确答案') || answerEl) {
+            let answerEl = q.querySelector(currentConfig.answer);
+            if (answerEl) {
+                let answerText = answerEl.innerText.replace(/\s+/g, ' ').trim();
                 let letters = getAnswerLetters(answerText);
                 bodyHtml += `<p style="color:#d32f2f;font-weight:bold;font-size:12pt;margin:4px 0;">✅ 正确答案：${letters}</p>`;
             }
 
-            let analysisEl = q.querySelector('.mark_strategy') || q.querySelector('.analysis');
+            let analysisEl = q.querySelector(currentConfig.analysis);
             if (analysisEl) {
                 let analysisText = analysisEl.innerText.replace(/\s+/g, ' ').trim();
                 bodyHtml += `<p style="color:#555;font-style:italic;font-size:11pt;margin:4px 0 12px 0;">📖 解析：${analysisText}</p>`;
@@ -276,7 +278,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>学习通练习题</title>
+    <title>${platformName}练习题</title>
     <style>
         body { font-family: '宋体', SimSun, serif; padding: 20px; background: #fafafa; }
         .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
@@ -294,12 +296,13 @@
 
     // --- 下载文件 ---
     function downloadFile(content, ext, mimeType) {
+        const platformName = host.includes('chaoxing') ? '学习通' : '在浙学';
         const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         const timestamp = new Date().toISOString().slice(0,10).replace(/-/g,"");
-        a.download = `学习通题目_${timestamp}.${ext}`;
+        a.download = `${platformName}题目_${timestamp}.${ext}`;
         a.click();
         URL.revokeObjectURL(url);
     }
