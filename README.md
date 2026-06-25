@@ -25,7 +25,6 @@
 首先需要在你的浏览器（Chrome, Edge, Firefox, Safari 等）上安装 [Tampermonkey (油猴)](https://www.google.com/search?q=https://www.tampermonkey.net/) 插件。
 2. **安装本脚本**：
 * **方式一**：在 Tampermonkey 控制面板中点击“添加新脚本”，清空默认代码，将本项目的脚本代码全选复制并粘贴进去，点击“文件” -> “保存”即可。
-* **方式二**：点击 [这里](chrome-extension://dhdgffkkebhmkfjojejmpbldmpobfkfo/ask.html?aid=712ce006-f5aa-43e0-8314-b91d941d7a9f)  一键安装。
 
 
 
